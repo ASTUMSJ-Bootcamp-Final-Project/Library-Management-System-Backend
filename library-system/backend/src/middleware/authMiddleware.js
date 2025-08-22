@@ -1,23 +1,31 @@
+const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const { ENV } = require("../config/env"); // your JWT_SECRET
 
 const authMiddleware = async (req, res, next) => {
   try {
-    const { username, password } = req.headers;
-
-    if (!username || !password) {
-      return res.status(400).json({ message: "Username and password required in headers" });
+    // 1. Get token from headers
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Authorization token required" });
     }
 
-    const user = await User.findOne({ username });
+    const token = authHeader.split(" ")[1];
 
-    if (!user || user.password !== password) {
-      return res.status(401).json({ message: "Invalid username or password" });
+    // 2. Verify JWT
+    const decoded = jwt.verify(token, ENV.JWT_SECRET);
+
+    // 3. Find the user from decoded payload
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
     }
 
-    req.user = user; // attach user to request
+    // 4. Attach user to request
+    req.user = user; // any logged-in user (user or admin)
     next();
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
 

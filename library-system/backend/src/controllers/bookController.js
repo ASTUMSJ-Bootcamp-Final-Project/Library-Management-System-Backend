@@ -1,6 +1,6 @@
 const Book = require("../models/Book");
 
-// List all books
+// List all books (Public)
 const listBooks = async (req, res) => {
   try {
     const books = await Book.find();
@@ -10,12 +10,13 @@ const listBooks = async (req, res) => {
   }
 };
 
-// Get book by ID
+// Get book by ID (Public)
 const getBookById = async (req, res) => {
   try {
     const { id } = req.params;
     const book = await Book.findById(id);
     if (!book) return res.status(404).json({ message: "Book not found" });
+
     res.json(book);
   } catch (error) {
     res.status(400).json({ message: "Invalid Book ID" });
@@ -38,9 +39,11 @@ const addBook = async (req, res) => {
       publicationYear,
       totalCopies,
       availableCopies: totalCopies,
+      coverImage: req.file ? req.file.filename : null,
     });
 
     await book.save();
+
     res.status(201).json({ message: "Book added successfully", book });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -51,7 +54,9 @@ const addBook = async (req, res) => {
 const updateBook = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = { ...req.body };
+
+    if (req.file) updates.coverImage = req.file.filename;
 
     const book = await Book.findByIdAndUpdate(id, updates, { new: true });
     if (!book) return res.status(404).json({ message: "Book not found" });

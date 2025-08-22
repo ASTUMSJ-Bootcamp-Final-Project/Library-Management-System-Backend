@@ -1,15 +1,26 @@
 const express = require("express");
-const { listBooks, addBook, updateBook, deleteBook, getBookById } = require("../controllers/bookController");
+
+const {
+  listBooks,
+  getBookById,
+  addBook,
+  updateBook,
+  deleteBook,
+} = require("../controllers/bookController");
+
 const { authMiddleware } = require("../middleware/authMiddleware");
 const { authorizeRoles } = require("../middleware/roleMiddleware");
+const { upload } = require("../middleware/uploadMiddleware");
 
 const router = express.Router();
 
-router.get("/", authMiddleware, listBooks); // anyone with username/password
-router.get("/:id", authMiddleware, getBookById);// anyone with username/password
+// Public
+router.get("/", listBooks);
+router.get("/:id", getBookById);
 
-router.post("/", authMiddleware, authorizeRoles("admin"), addBook);
-router.put("/:id", authMiddleware, authorizeRoles("admin"), updateBook);
+// Admin only with file upload
+router.post("/", authMiddleware, authorizeRoles("admin"), upload.single("coverImage"), addBook);
+router.put("/:id", authMiddleware, authorizeRoles("admin"), upload.single("coverImage"), updateBook);
 router.delete("/:id", authMiddleware, authorizeRoles("admin"), deleteBook);
 
 module.exports = router;

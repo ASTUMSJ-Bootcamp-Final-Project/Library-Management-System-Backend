@@ -1,5 +1,7 @@
 const express = require("express");
+const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const bcrypt = require("bcryptjs");
 const router = express.Router();
 
 // Register new user
@@ -7,47 +9,55 @@ router.post("/register", async (req, res) => {
   try {
     const { username, email, password, role } = req.body;
 
-    // Check required fields (all 3 are mandatory)
     if (!username || !email || !password) {
       return res.status(400).json({ message: "Username, email, and password are required" });
     }
 
-    // Check if username or email already exists
     const existingUser = await User.findOne({ $or: [{ username }, { email }] });
     if (existingUser) {
       return res.status(400).json({ message: "Username or email already exists" });
     }
 
-    // Create new user
     const user = new User({ username, email, password, role });
     await user.save();
 
-    res.status(201).json({ message: "User registered successfully", user });
+    res.status(201).json({ message: "User registered successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Login (by username OR email + password)
+// Login
 router.post("/login", async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    // Require at least one of username/email and password
     if ((!username && !email) || !password) {
       return res.status(400).json({ message: "Username or email and password are required" });
     }
 
-    // Find user by username or email
+    // Select password explicitly since model sets select: false
     const user = await User.findOne({
       $or: [{ username: username || null }, { email: email || null }]
-    });
+    }).select("+password");
 
-    if (!user || user.password !== password) {
+    if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    res.json({ message: "Login successful", user });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // Generate JWT
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({ message: "Login successful", token });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

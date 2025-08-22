@@ -1,10 +1,13 @@
 const express = require("express");
 const cors = require("cors");
+const path = require("path"); // for handling file paths
+
 const bookRoutes = require("./routes/bookRoutes");
 const userRoutes = require("./routes/userRoutes");
 
 const app = express();
 
+// Root route
 app.get("/", (req, res) => {
   res.send("Library Management System API is running");
 });
@@ -12,6 +15,10 @@ app.get("/", (req, res) => {
 app.use(cors());
 app.use(express.json());
 
+// Serve uploaded files (images, docs, etc.)
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Routes
 app.use("/api/books", bookRoutes);
 app.use("/api/auth", userRoutes);
 
