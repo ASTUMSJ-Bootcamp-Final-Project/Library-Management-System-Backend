@@ -5,7 +5,11 @@ const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true, minlength: 6, select: false },
-  role: { type: String, enum: ["admin", "user"], default: "user" },
+  role: { 
+    type: String, 
+    enum: ["super_admin", "admin", "user"], 
+    default: "user" 
+  },
 }, { timestamps: true });
 
 // Ensure we never expose password in JSON responses

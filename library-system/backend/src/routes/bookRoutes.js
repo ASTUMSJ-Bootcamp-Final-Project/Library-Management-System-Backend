@@ -18,9 +18,9 @@ const router = express.Router();
 router.get("/", listBooks);
 router.get("/:id", getBookById);
 
-// Admin only with file upload
-router.post("/", authMiddleware, authorizeRoles("admin"), upload.single("coverImage"), addBook);
-router.put("/:id", authMiddleware, authorizeRoles("admin"), upload.single("coverImage"), updateBook);
-router.delete("/:id", authMiddleware, authorizeRoles("admin"), deleteBook);
+// Admin and Super Admin can manage books
+router.post("/", authMiddleware, authorizeRoles("admin", "super_admin"), upload.single("coverImage"), addBook);
+router.put("/:id", authMiddleware, authorizeRoles("admin", "super_admin"), upload.single("coverImage"), updateBook);
+router.delete("/:id", authMiddleware, authorizeRoles("admin", "super_admin"), deleteBook);
 
 module.exports = router;
