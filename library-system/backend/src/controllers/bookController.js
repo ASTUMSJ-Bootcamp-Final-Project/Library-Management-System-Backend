@@ -87,7 +87,6 @@ const updateBook = asyncHandler(async (req, res) => {
     throw new Error("Only admin users can update books");
   }
 
-
   const updatedBook = await Book.findByIdAndUpdate(req.params.id, req.body, {
     new: true,
   });
