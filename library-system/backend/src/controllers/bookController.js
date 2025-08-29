@@ -1,4 +1,3 @@
-// controllers/bookController.js
 const asyncHandler = require("express-async-handler");
 const bookService = require("../services/bookService");
 
@@ -25,7 +24,8 @@ const createBook = asyncHandler(async (req, res) => {
   const book = await bookService.createBook(
     req.body,
     req.user.id,
-    req.user.isAdmin
+    req.user.role,
+    req.file
   );
   res.status(201).json(book);
 });
@@ -37,7 +37,8 @@ const updateBook = asyncHandler(async (req, res) => {
   const updatedBook = await bookService.updateBook(
     req.params.id,
     req.body,
-    req.user.isAdmin
+    req.user.role,
+    req.file
   );
   res.status(200).json(updatedBook);
 });
@@ -46,9 +47,10 @@ const updateBook = asyncHandler(async (req, res) => {
 //@route DELETE /api/books/:id
 //@access private
 const deleteBook = asyncHandler(async (req, res) => {
-  const result = await bookService.deleteBook(req.params.id, req.user.isAdmin);
+  const result = await bookService.deleteBook(req.params.id, req.user.role);
   res.status(200).json(result);
 });
+
 
 module.exports = {
   getBooks,

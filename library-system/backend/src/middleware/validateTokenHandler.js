@@ -1,4 +1,4 @@
-const asyncHandler = require("express-async-handler");
+const asyncHandler = require("express-async-handler"); // for handling async errors
 const jwt = require("jsonwebtoken");
 const { accessTokenSecret } = require("../config/env");
 
@@ -8,7 +8,7 @@ const validateToken = asyncHandler(async (req, res, next) => {
 
   if (authHeader && authHeader.startsWith("Bearer")) {
     token = authHeader.split(" ")[1];
-    jwt.verify(token, accessTokenSecret, (err, decoded) => {
+    jwt.verify(token, accessTokenSecret, (err, decoded) => { // ckecks if the token is valid, not expired and signed correctly
       if (err) {
         res.status(401);
         throw new Error("User is not authorized");

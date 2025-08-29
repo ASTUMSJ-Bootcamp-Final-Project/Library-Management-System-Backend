@@ -7,5 +7,5 @@ module.exports = {
   connectionString: process.env.CONNECTION_STRING,
   accessTokenSecret: process.env.ACCESS_TOKEN_SECRET,
   adminSecretCode: process.env.ADMIN_SECRET_CODE,
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || "4320m",
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || "60m",
 };

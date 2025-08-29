@@ -27,6 +27,10 @@ const bookSchema = mongoose.Schema(
       type: String,
       required: false,
     },
+    image: {
+      url: { type: String }, // Cloudinary URL
+      public_id: { type: String }, // for replacing/deleting later
+    },
     addedBy: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,

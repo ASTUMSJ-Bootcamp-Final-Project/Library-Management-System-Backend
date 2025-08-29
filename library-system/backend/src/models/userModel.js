@@ -15,10 +15,15 @@ const userSchema = mongoose.Schema(
       type: String,
       required: [true, "Please add the user password"],
     },
-    isAdmin: {
-      type: Boolean,
-      default: false,
+    role: {
+      type: String,
+      enum: ["user", "admin", "superadmin"],
+      default: "user",
     },
+    phone: { type: String },
+    department: { type: String },
+    studentId: { type: String },
+    refreshToken: { type: String },
   },
   {
     timestamps: true,
