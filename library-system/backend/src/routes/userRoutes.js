@@ -236,6 +236,43 @@ router.get("/all", authMiddleware, authorizeRoles("super_admin"), async (req, re
   }
 });
 
+// Update user membership status (Admin and Super Admin)
+router.put("/membership/:userId", authMiddleware, authorizeRoles("admin", "super_admin"), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { membershipStatus } = req.body;
+
+    if (!membershipStatus) {
+      return res.status(400).json({ message: "membershipStatus is required" });
+    }
+
+    if (!["pending", "approved", "suspended"].includes(membershipStatus)) {
+      return res.status(400).json({ message: "Invalid membership status" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.membershipStatus = membershipStatus;
+    await user.save();
+
+    res.json({
+      message: "Membership status updated successfully",
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        membershipStatus: user.membershipStatus
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // ==================== ADMIN ROUTES ====================
 
 // Delete regular user (Admin only)

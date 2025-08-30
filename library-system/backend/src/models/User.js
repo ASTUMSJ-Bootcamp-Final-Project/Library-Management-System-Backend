@@ -10,6 +10,11 @@ const userSchema = new mongoose.Schema({
     enum: ["super_admin", "admin", "user"], 
     default: "user" 
   },
+  membershipStatus: {
+    type: String,
+    enum: ["pending", "approved", "suspended"],
+    default: "pending"
+  },
 }, { timestamps: true });
 
 // Ensure we never expose password in JSON responses
