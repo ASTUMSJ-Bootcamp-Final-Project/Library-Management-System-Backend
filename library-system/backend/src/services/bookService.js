@@ -12,43 +12,45 @@ const getBook = async (bookId) => {
     "addedBy",
     "username email"
   );
-
-  if (!book) {
-    throw new Error("Book not found");
-  }
-
+  if (!book) throw new Error("Book not found");
   return book;
 };
 
 //@desc Create new book
 const createBook = async (bookData, userId, role, file) => {
-  const { title, author, genre, publicationYear, ISBN, description } = bookData;
+  const {
+    title,
+    author,
+    genre,
+    publicationYear,
+    ISBN,
+    description,
+    totalCopies,
+  } = bookData;
 
-  if (!title || !author || !genre || !publicationYear || !ISBN) {
+  if (
+    !title ||
+    !author ||
+    !genre ||
+    !publicationYear ||
+    !ISBN ||
+    !totalCopies
+  ) {
     throw new Error("All fields except description are mandatory!");
   }
 
-  // Only admin can create
-  if (role !== "admin") {
-    throw new Error("Only admin users can add books");
-  }
+  if (role !== "admin") throw new Error("Only admin users can add books");
 
-  // Prevent duplicate ISBN
   const existingBook = await Book.findOne({ ISBN });
-  if (existingBook) {
-    throw new Error("Book with this ISBN already exists");
-  }
+  if (existingBook) throw new Error("Book with this ISBN already exists");
 
   let imageUpload;
-
   if (file) {
     imageUpload = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         { folder: "libraryManagement" },
-        (err, result) => {
-          if (err) reject(new Error("Cloudinary upload failed"));
-          else resolve(result);
-        }
+        (err, result) =>
+          err ? reject(new Error("Cloudinary upload failed")) : resolve(result)
       );
       stream.end(file.buffer);
     });
@@ -61,6 +63,8 @@ const createBook = async (bookData, userId, role, file) => {
     publicationYear,
     ISBN,
     description,
+    totalCopies,
+    availableCopies: totalCopies, // start full
     image: imageUpload
       ? { url: imageUpload.secure_url, public_id: imageUpload.public_id }
       : null,
@@ -73,25 +77,33 @@ const createBook = async (bookData, userId, role, file) => {
 //@desc Update book
 const updateBook = async (bookId, updateData, role, file) => {
   const book = await Book.findById(bookId);
-  if (!book) {
-    throw new Error("Book not found");
-  }
-
-  if (role !== "admin") {
-    throw new Error("Only admin users can update books");
-  }
+  if (!book) throw new Error("Book not found");
+  if (role !== "admin") throw new Error("Only admin users can update books");
 
   let updatedData = { ...updateData };
 
-  // If new image provided, upload to cloudinary
+  // handle totalCopies adjustments safely
+  if (updateData.totalCopies !== undefined) {
+    const newTotal = Number(updateData.totalCopies);
+    if (Number.isNaN(newTotal) || newTotal < 1)
+      throw new Error("Invalid totalCopies value");
+
+    const borrowedCount = book.totalCopies - book.availableCopies; // how many are out
+    if (newTotal < borrowedCount) {
+      throw new Error(
+        "Cannot reduce totalCopies below the number currently borrowed"
+      );
+    }
+    // adjust available by the difference
+    const diff = newTotal - book.totalCopies;
+    updatedData.availableCopies = book.availableCopies + diff;
+  }
+
   if (file) {
     const uploadRes = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         { folder: "libraryManagement" },
-        (err, result) => {
-          if (err) reject(err);
-          else resolve(result);
-        }
+        (err, result) => (err ? reject(err) : resolve(result))
       );
       stream.end(file.buffer);
     });
@@ -104,35 +116,17 @@ const updateBook = async (bookId, updateData, role, file) => {
   const updatedBook = await Book.findByIdAndUpdate(bookId, updatedData, {
     new: true,
   });
-
   return updatedBook;
 };
 
 //@desc Delete book
 const deleteBook = async (bookId, role) => {
   const book = await Book.findById(bookId);
-
-  if (!book) {
-    throw new Error("Book not found");
-  }
-
-  // Only allow admins to delete books
-  if (role !== "admin") {
-    throw new Error("Only admin users can delete books");
-  }
+  if (!book) throw new Error("Book not found");
+  if (role !== "admin") throw new Error("Only admin users can delete books");
 
   await Book.findByIdAndDelete(bookId);
-
-  return {
-    message: "Book deleted successfully",
-    id: bookId,
-  };
+  return { message: "Book deleted successfully", id: bookId };
 };
 
-module.exports = {
-  getBooks,
-  getBook,
-  createBook,
-  updateBook,
-  deleteBook,
-};
+module.exports = { getBooks, getBook, createBook, updateBook, deleteBook };

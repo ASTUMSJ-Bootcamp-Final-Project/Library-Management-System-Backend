@@ -19,7 +19,7 @@ const getBook = asyncHandler(async (req, res) => {
 
 //@desc Create new book
 //@route POST /api/books
-//@access private
+//@access private (admin)
 const createBook = asyncHandler(async (req, res) => {
   const book = await bookService.createBook(
     req.body,
@@ -32,7 +32,7 @@ const createBook = asyncHandler(async (req, res) => {
 
 //@desc Update book
 //@route PUT /api/books/:id
-//@access private
+//@access private (admin)
 const updateBook = asyncHandler(async (req, res) => {
   const updatedBook = await bookService.updateBook(
     req.params.id,
@@ -45,17 +45,10 @@ const updateBook = asyncHandler(async (req, res) => {
 
 //@desc Delete book
 //@route DELETE /api/books/:id
-//@access private
+//@access private (admin)
 const deleteBook = asyncHandler(async (req, res) => {
   const result = await bookService.deleteBook(req.params.id, req.user.role);
   res.status(200).json(result);
 });
 
-
-module.exports = {
-  getBooks,
-  getBook,
-  createBook,
-  updateBook,
-  deleteBook,
-};
+module.exports = { getBooks, getBook, createBook, updateBook, deleteBook };
