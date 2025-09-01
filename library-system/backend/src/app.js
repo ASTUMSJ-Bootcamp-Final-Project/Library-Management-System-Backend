@@ -5,6 +5,7 @@ const path = require("path"); // for handling file paths
 const bookRoutes = require("./routes/bookRoutes");
 const userRoutes = require("./routes/userRoutes");
 const borrowRoutes = require("./routes/borrowRoutes");
+const reminderRoutes = require("./routes/reminderRoutes");
 
 const app = express();
 
@@ -23,5 +24,6 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/books", bookRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/borrow", borrowRoutes);
+app.use("/api/reminders", reminderRoutes);
 
 module.exports = app;

@@ -2,6 +2,7 @@ const Borrow = require("../models/Borrow");
 const Book = require("../models/Book");
 const User = require("../models/User");
 const { addDays, updateOverdueBooks } = require("../utils/dateUtils");
+const emailService = require("../services/emailService");
 
 // Check if user has overdue books
 const hasOverdueBooks = async (userId) => {
@@ -112,6 +113,22 @@ const requestBorrow = async (req, res) => {
 
     await borrow.save();
 
+    // Send reservation confirmation email
+    try {
+      const user = await User.findById(req.user._id);
+      if (user && user.email) {
+        await emailService.sendReservationConfirmation(
+          user.email,
+          user.username,
+          book.title,
+          reservationExpiry
+        );
+      }
+    } catch (emailError) {
+      console.error('Failed to send reservation confirmation email:', emailError);
+      // Continue execution even if email fails
+    }
+
     res.status(201).json({
       message: "Book reserved successfully. Please collect within 24 hours.",
       borrow,
@@ -161,6 +178,25 @@ const confirmCollection = async (req, res) => {
     borrow.collectedAt = now;
     await borrow.save();
 
+    // Send borrow confirmation email
+    try {
+      const borrowWithDetails = await Borrow.findById(borrow._id)
+        .populate('user', 'username email')
+        .populate('book', 'title');
+      
+      if (borrowWithDetails.user && borrowWithDetails.user.email) {
+        await emailService.sendBorrowConfirmation(
+          borrowWithDetails.user.email,
+          borrowWithDetails.user.username,
+          borrowWithDetails.book.title,
+          dueDate
+        );
+      }
+    } catch (emailError) {
+      console.error('Failed to send borrow confirmation email:', emailError);
+      // Continue execution even if email fails
+    }
+
     res.json({
       message: "Book collection confirmed successfully",
       borrow,
@@ -194,6 +230,22 @@ const cancelExpiredReservations = async (req, res) => {
       if (book) {
         book.availableCopies += 1;
         await book.save();
+      }
+      
+      // Send reservation cancelled email
+      try {
+        const user = await User.findById(reservation.user);
+        if (user && user.email) {
+          await emailService.sendReservationCancellation(
+            user.email,
+            user.username,
+            book.title,
+            'Reservation expired'
+          );
+        }
+      } catch (emailError) {
+        console.error('Failed to send reservation cancellation email:', emailError);
+        // Continue execution even if email fails
       }
       
       cancelledCount++;
@@ -249,6 +301,22 @@ const returnBook = async (req, res) => {
     if (book) {
       book.availableCopies += 1;
       await book.save();
+    }
+
+    // Send return confirmation email
+    try {
+      const user = await User.findById(borrow.user);
+      if (user && user.email && book) {
+        await emailService.sendReturnConfirmation(
+          user.email,
+          user.username,
+          book.title,
+          borrow.returnDate
+        );
+      }
+    } catch (emailError) {
+      console.error('Failed to send return confirmation email:', emailError);
+      // Continue execution even if email fails
     }
 
     res.json({

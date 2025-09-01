@@ -4,6 +4,7 @@ const { ENV } = require("./config/env");
 const { runMaintenanceTasks } = require("./utils/dateUtils");
 const Borrow = require("./models/Borrow");
 const Book = require("./models/Book");
+const reminderService = require("./services/reminderService");
 
 const startServer = async () => {
   await connectDB();
@@ -23,9 +24,13 @@ const startServer = async () => {
   // Run initial maintenance on server start
   runScheduledMaintenance();
 
+  // Start the reminder service for email notifications
+  reminderService.startScheduler();
+
   app.listen(ENV.PORT, () => {
     console.log(`Server running on http://localhost:${ENV.PORT}`);
     console.log("Scheduled maintenance tasks enabled (runs every hour)");
+    console.log("Email reminder service started");
   });
 };
 
