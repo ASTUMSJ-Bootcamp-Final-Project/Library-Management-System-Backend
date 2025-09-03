@@ -4,9 +4,11 @@ const {
   confirmCollection, 
   cancelExpiredReservations,
   returnBook, 
+  confirmReturn,
   listBorrows, 
   getUserBorrowingStatus,
-  getPendingReservations
+  getPendingReservations,
+  getBookBorrowingHistory
 } = require("../controllers/borrowController");
 const { authMiddleware } = require("../middleware/authMiddleware");
 const { authorizeRoles } = require("../middleware/roleMiddleware");
@@ -22,14 +24,20 @@ router.post("/confirm-collection", authMiddleware, authorizeRoles("admin", "supe
 // Cancel expired reservations (can be called by admins or scheduled)
 router.post("/cancel-expired", authMiddleware, authorizeRoles("admin", "super_admin"), cancelExpiredReservations);
 
-// Users, Admins, and Super Admins can return books
+// Users, Admins, and Super Admins can request to return books
 router.post("/return", authMiddleware, authorizeRoles("user", "admin", "super_admin"), returnBook);
+
+// Admins confirm book returns
+router.post("/confirm-return", authMiddleware, authorizeRoles("admin", "super_admin"), confirmReturn);
 
 // Get user's borrowing status
 router.get("/status", authMiddleware, authorizeRoles("user", "admin", "super_admin"), getUserBorrowingStatus);
 
 // Get pending reservations (admin view)
 router.get("/pending-reservations", authMiddleware, authorizeRoles("admin", "super_admin"), getPendingReservations);
+
+// Get borrowing history for a specific book (admin view)
+router.get("/book/:bookId/history", authMiddleware, authorizeRoles("admin", "super_admin"), getBookBorrowingHistory);
 
 // List borrows; users see their own, admins/super_admins see all
 router.get("/", authMiddleware, authorizeRoles("user", "admin", "super_admin"), listBorrows);

@@ -37,11 +37,7 @@ const cancelExpiredReservations = async (Borrow, Book) => {
     let cancelledCount = 0;
     
     for (const reservation of expiredReservations) {
-      // Update reservation status
-      reservation.status = "expired";
-      await reservation.save();
-
-      // Restore available copies
+      // Restore available copies first
       const book = await Book.findById(reservation.book);
       if (book) {
         book.availableCopies += 1;
@@ -51,8 +47,14 @@ const cancelExpiredReservations = async (Borrow, Book) => {
       cancelledCount++;
     }
 
-    console.log(`Cancelled ${cancelledCount} expired reservations`);
-    return cancelledCount;
+    // Delete all expired reservations completely
+    const deleteResult = await Borrow.deleteMany({
+      status: "reserved",
+      reservationExpiry: { $lt: now }
+    });
+
+    console.log(`Cancelled and removed ${deleteResult.deletedCount} expired reservations`);
+    return deleteResult.deletedCount;
   } catch (error) {
     console.error("Error cancelling expired reservations:", error);
     return 0;

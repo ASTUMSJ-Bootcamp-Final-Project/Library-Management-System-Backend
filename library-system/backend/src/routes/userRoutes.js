@@ -5,6 +5,7 @@ const bcrypt = require("bcryptjs");
 const { authMiddleware } = require("../middleware/authMiddleware");
 const { authorizeRoles } = require("../middleware/roleMiddleware");
 const router = express.Router();
+const emailService = require("../services/emailService");
 
 // Register new user (only regular users, admins must be created by super admin)
 router.post("/register", async (req, res) => {
@@ -112,6 +113,25 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// Get current user's profile (All authenticated users)
+router.get("/profile", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json({
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      membershipStatus: user.membershipStatus || null,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // ==================== ROLE-BASED ROUTES ====================
 
 // Delete own account (All users)
@@ -170,6 +190,17 @@ router.put("/promote/:userId", authMiddleware, authorizeRoles("super_admin"), as
     user.role = "admin";
     await user.save();
 
+    // Send email notification (best-effort)
+    try {
+      await emailService.sendEmail(
+        user.email,
+        "Role Updated: You have been promoted to Admin",
+        `<p>Hello ${user.username},</p><p>Your account role has been updated to <strong>Admin</strong>.</p>`
+      );
+    } catch (e) {
+      console.warn("Failed to send promotion email:", e?.message || e);
+    }
+
     res.json({ 
       message: "User promoted to admin successfully",
       user: {
@@ -185,7 +216,7 @@ router.put("/promote/:userId", authMiddleware, authorizeRoles("super_admin"), as
 });
 
 // Remove admin (Super Admin only)
-router.delete("/admin/:userId", authMiddleware, authorizeRoles("super_admin"), async (req, res) => {
+router.put("/demote/:userId", authMiddleware, authorizeRoles("super_admin"), async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -195,11 +226,32 @@ router.delete("/admin/:userId", authMiddleware, authorizeRoles("super_admin"), a
     }
 
     if (user.role !== "admin") {
-      return res.status(400).json({ message: "Can only remove admin users" });
+      return res.status(400).json({ message: "Can only demote admin users" });
     }
 
-    await User.findByIdAndDelete(userId);
-    res.json({ message: "Admin removed successfully" });
+    user.role = "user";
+    await user.save();
+
+    // Send email notification (best-effort)
+    try {
+      await emailService.sendEmail(
+        user.email,
+        "Role Updated: You have been demoted to User",
+        `<p>Hello ${user.username},</p><p>Your account role has been changed to <strong>User</strong>.</p>`
+      );
+    } catch (e) {
+      console.warn("Failed to send demotion email:", e?.message || e);
+    }
+
+    res.json({
+      message: "Admin demoted to user successfully",
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -194,11 +194,7 @@ class ReminderService {
 
       for (const reservation of expiredReservations) {
         try {
-          // Update reservation status
-          reservation.status = 'expired';
-          await reservation.save();
-
-          // Restore available copies
+          // Restore available copies first
           const book = await Book.findById(reservation.book._id);
           if (book) {
             book.availableCopies += 1;
@@ -225,8 +221,14 @@ class ReminderService {
         }
       }
 
-      console.log(`🧹 Cleaned up ${cleanedCount} expired reservations`);
-      return cleanedCount;
+      // Delete all expired reservations completely
+      const deleteResult = await Borrow.deleteMany({
+        status: 'reserved',
+        reservationExpiry: { $lt: now }
+      });
+
+      console.log(`🧹 Cleaned up and removed ${deleteResult.deletedCount} expired reservations`);
+      return deleteResult.deletedCount;
     } catch (error) {
       console.error('Error cleaning up expired reservations:', error);
       return 0;

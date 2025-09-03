@@ -221,11 +221,7 @@ const cancelExpiredReservations = async (req, res) => {
     let cancelledCount = 0;
     
     for (const reservation of expiredReservations) {
-      // Update reservation status
-      reservation.status = "expired";
-      await reservation.save();
-
-      // Restore available copies
+      // Restore available copies first
       const book = await Book.findById(reservation.book);
       if (book) {
         book.availableCopies += 1;
@@ -235,7 +231,7 @@ const cancelExpiredReservations = async (req, res) => {
       // Send reservation cancelled email
       try {
         const user = await User.findById(reservation.user);
-        if (user && user.email) {
+        if (user && user.email && book) {
           await emailService.sendReservationCancellation(
             user.email,
             user.username,
@@ -251,18 +247,24 @@ const cancelExpiredReservations = async (req, res) => {
       cancelledCount++;
     }
 
+    // Delete all expired reservations completely
+    const deleteResult = await Borrow.deleteMany({
+      status: "reserved",
+      reservationExpiry: { $lt: now }
+    });
+
     res.json({
-      message: `Cancelled ${cancelledCount} expired reservations`,
-      cancelledCount
+      message: `Cancelled and removed ${cancelledCount} expired reservations`,
+      cancelledCount: deleteResult.deletedCount
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Students can return a borrowed book
-// - Increases availableCopies after returning
-// - Updates borrow record with returnDate and status
+// Students can request to return a borrowed book
+// - Changes status to "return_requested" 
+// - Admin must confirm the return
 const returnBook = async (req, res) => {
   try {
     const { borrowId } = req.body;
@@ -278,22 +280,82 @@ const returnBook = async (req, res) => {
 
     // Check if the user owns this borrow record (unless admin/super_admin)
     if (req.user.role === "user" && borrow.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "You can only return your own borrowed books" });
+      return res.status(403).json({ message: "You can only request to return your own borrowed books" });
     }
 
-    // Check if the book is already returned
+    // Check if the book is already returned or return requested
     if (borrow.status === "returned") {
       return res.status(400).json({ message: "This book has already been returned" });
     }
 
-    // Only allow returning borrowed or overdue books
+    if (borrow.status === "return_requested") {
+      return res.status(400).json({ message: "Return has already been requested for this book" });
+    }
+
+    // Only allow requesting return for borrowed or overdue books
     if (borrow.status !== "borrowed" && borrow.status !== "overdue") {
       return res.status(400).json({ message: "This book cannot be returned in its current status" });
     }
 
-    // Update borrow record
-    borrow.returnDate = new Date();
+    // Update borrow record to return requested
+    borrow.status = "return_requested";
+    await borrow.save();
+
+    // Send return request notification email to admin
+    try {
+      const user = await User.findById(borrow.user);
+      const book = await Book.findById(borrow.book);
+      if (user && user.email && book) {
+        await emailService.sendReturnRequestNotification(
+          user.email,
+          user.username,
+          book.title,
+          new Date()
+        );
+      }
+    } catch (emailError) {
+      console.error('Failed to send return request notification email:', emailError);
+      // Continue execution even if email fails
+    }
+
+    res.json({
+      message: "Return request submitted successfully. Please wait for admin confirmation.",
+      borrow
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Admin confirms book return
+// - Changes status to "returned"
+// - Increases availableCopies
+// - Sets returnDate
+const confirmReturn = async (req, res) => {
+  try {
+    const { borrowId } = req.body;
+
+    if (!borrowId) {
+      return res.status(400).json({ message: "borrowId is required" });
+    }
+
+    // Only admins can confirm returns
+    if (req.user.role !== "admin" && req.user.role !== "super_admin") {
+      return res.status(403).json({ message: "Only administrators can confirm book returns" });
+    }
+
+    const borrow = await Borrow.findById(borrowId);
+    if (!borrow) {
+      return res.status(404).json({ message: "Borrow record not found" });
+    }
+
+    if (borrow.status !== "return_requested") {
+      return res.status(400).json({ message: "This record is not in return_requested status" });
+    }
+
+    // Update borrow record to returned
     borrow.status = "returned";
+    borrow.returnDate = new Date();
     await borrow.save();
 
     // Increase available copies
@@ -303,7 +365,7 @@ const returnBook = async (req, res) => {
       await book.save();
     }
 
-    // Send return confirmation email
+    // Send return confirmation email to user
     try {
       const user = await User.findById(borrow.user);
       if (user && user.email && book) {
@@ -320,7 +382,7 @@ const returnBook = async (req, res) => {
     }
 
     res.json({
-      message: "Book returned successfully",
+      message: "Book return confirmed successfully",
       borrow,
       book: book ? { id: book._id, availableCopies: book.availableCopies } : null,
     });
@@ -338,8 +400,8 @@ const listBorrows = async (req, res) => {
     const isAdmin = req.user.role === "admin" || req.user.role === "super_admin";
     const filter = isAdmin ? {} : { user: req.user._id };
     const borrows = await Borrow.find(filter)
-      .populate({ path: "book", select: "title author isbn" })
-      .populate({ path: "user", select: "username email role" })
+      .populate({ path: "book", select: "title author isbn coverImage legacyCoverImage" })
+      .populate({ path: "user", select: "username email role name" })
       .sort({ createdAt: -1 });
     res.json(borrows);
   } catch (error) {
@@ -359,14 +421,20 @@ const getUserBorrowingStatus = async (req, res) => {
     const activeBorrows = await Borrow.find({
       user: userId,
       status: { $in: ["borrowed", "overdue"] }
-    }).populate({ path: "book", select: "title author isbn" });
+    }).populate({ path: "book", select: "title author isbn coverImage legacyCoverImage" });
     
     // Get active reservations
     const activeReservations = await Borrow.find({
       user: userId,
       status: "reserved",
       reservationExpiry: { $gt: new Date() }
-    }).populate({ path: "book", select: "title author isbn" });
+    }).populate({ path: "book", select: "title author isbn coverImage legacyCoverImage" });
+
+    // Get return requested books
+    const returnRequestedBooks = await Borrow.find({
+      user: userId,
+      status: "return_requested"
+    }).populate({ path: "book", select: "title author isbn coverImage legacyCoverImage" });
     
     // Get overdue books
     const overdueBooks = activeBorrows.filter(borrow => 
@@ -381,6 +449,7 @@ const getUserBorrowingStatus = async (req, res) => {
     const status = {
       totalBorrowed: activeBorrows.length,
       totalReserved: activeReservations.length,
+      totalReturnRequested: returnRequestedBooks.length,
       borrowedBooks: borrowedBooks.length,
       overdueBooks: overdueBooks.length,
       canBorrowMore: activeBorrows.length < 3,
@@ -389,6 +458,7 @@ const getUserBorrowingStatus = async (req, res) => {
       booksRemaining: Math.max(0, 3 - activeBorrows.length),
       activeBorrows: activeBorrows,
       activeReservations: activeReservations,
+      returnRequestedBooks: returnRequestedBooks,
       overdueBooks: overdueBooks,
       borrowedBooks: borrowedBooks
     };
@@ -421,14 +491,58 @@ const getPendingReservations = async (req, res) => {
   }
 };
 
+// Get borrowing history for a specific book (for admin view)
+const getBookBorrowingHistory = async (req, res) => {
+  try {
+    const { bookId } = req.params;
+    const { page = 1, limit = 5 } = req.query;
+    
+    // Only admins can view book borrowing history
+    if (req.user.role !== "admin" && req.user.role !== "super_admin") {
+      return res.status(403).json({ message: "Only administrators can view book borrowing history" });
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Get total count for pagination
+    const totalCount = await Borrow.countDocuments({ book: bookId });
+    
+    // Get borrowing history with pagination
+    const borrowHistory = await Borrow.find({ book: bookId })
+      .populate({ path: "book", select: "title author isbn coverImage legacyCoverImage" })
+      .populate({ path: "user", select: "username email role" })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const totalPages = Math.ceil(totalCount / parseInt(limit));
+    
+    res.json({
+      borrowHistory,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalCount,
+        hasNextPage: parseInt(page) < totalPages,
+        hasPrevPage: parseInt(page) > 1,
+        limit: parseInt(limit)
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = { 
   requestBorrow, 
   confirmCollection, 
   cancelExpiredReservations,
   returnBook, 
+  confirmReturn,
   listBorrows, 
   getUserBorrowingStatus,
-  getPendingReservations
+  getPendingReservations,
+  getBookBorrowingHistory
 };
 
 

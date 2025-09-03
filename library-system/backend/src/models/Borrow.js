@@ -10,7 +10,7 @@ const borrowSchema = new mongoose.Schema(
     reservationExpiry: { type: Date },
     status: {
       type: String,
-      enum: ["reserved", "borrowed", "returned", "overdue", "expired"],
+      enum: ["reserved", "borrowed", "return_requested", "returned", "overdue", "expired"],
       default: "reserved",
     },
     collectedByAdmin: { type: Boolean, default: false },
