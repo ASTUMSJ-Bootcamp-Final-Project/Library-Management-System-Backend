@@ -24,6 +24,12 @@ const userSchema = mongoose.Schema(
     department: { type: String },
     studentId: { type: String },
     refreshToken: { type: String },
+    membershipStatus: {
+      type: String,
+      enum: ["Active", "Inactive"],
+      default: "Inactive",
+    },
+    membershipExpiry: { type: Date },
   },
   {
     timestamps: true,

@@ -144,8 +144,36 @@ const getAllReservations = async () => {
     .sort({ createdAt: -1 });
 };
 
+// @desc Student cancels own reservation
+const studentCancelReservation = async (borrowId, userId) => {
+  const borrow = await Borrow.findById(borrowId).populate("book user");
+  if (!borrow) throw new Error("Reservation not found");
 
+  // make sure it belongs to the student
+  if (borrow.user._id.toString() !== userId.toString()) {
+    throw new Error("You can only cancel your own reservations");
+  }
 
+  // only allow cancel if still reserved
+  if (borrow.status !== "reserved") {
+    throw new Error("You cannot cancel after the book is borrowed or returned");
+  }
+
+  borrow.status = "cancelled";
+  await borrow.save();
+
+  // give copy back
+  borrow.book.availableCopies += 1;
+  await borrow.book.save();
+
+  await sendEmail(
+    borrow.user.email,
+    "Reservation Cancelled",
+    `Your reservation for "${borrow.book.title}" has been cancelled.`
+  );
+
+  return borrow;
+};
 
 module.exports = {
   requestBorrow,
@@ -155,4 +183,5 @@ module.exports = {
   getBorrowHistory,
   getAllBorrowHistory,
   getAllReservations,
+  studentCancelReservation,
 };

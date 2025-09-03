@@ -100,6 +100,21 @@ const getAllReservations = asyncHandler(async (req, res) => {
   res.status(200).json(reservations);
 });
 
+
+// @desc Student cancels own reservation
+// @route PUT /api/borrows/:id/student-cancel
+// @access Private (student)
+const studentCancelReservation = asyncHandler(async (req, res) => {
+  if (req.user.role !== "user") {
+    res.status(403);
+    throw new Error("Students only");
+  }
+
+  const borrow = await borrowService.studentCancelReservation(req.params.id, req.user.id);
+  res.status(200).json(borrow);
+});
+
+
 module.exports = {
   requestBorrow,
   confirmBorrow,
@@ -109,4 +124,5 @@ module.exports = {
   getAllBorrowHistory,
   getAllBorrowedBooks,
   getAllReservations,
+  studentCancelReservation,
 };
