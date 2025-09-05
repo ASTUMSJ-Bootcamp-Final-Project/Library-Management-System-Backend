@@ -528,6 +528,42 @@ const getBookBorrowingHistory = async (req, res) => {
   }
 };
 
+// Get user's borrowing history with pagination
+const getUserBorrowingHistory = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const userId = req.user._id;
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Get total count for pagination
+    const totalCount = await Borrow.countDocuments({ user: userId });
+    
+    // Get borrowing history with pagination
+    const borrowHistory = await Borrow.find({ user: userId })
+      .populate({ path: "book", select: "title author isbn coverImage legacyCoverImage" })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const totalPages = Math.ceil(totalCount / parseInt(limit));
+    
+    res.json({
+      borrowHistory,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalCount,
+        hasNextPage: parseInt(page) < totalPages,
+        hasPrevPage: parseInt(page) > 1,
+        limit: parseInt(limit)
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Cancel a reservation (user can cancel their own reservations)
 const cancelReservation = async (req, res) => {
   try {
@@ -584,6 +620,7 @@ module.exports = {
   confirmReturn,
   listBorrows, 
   getUserBorrowingStatus,
+  getUserBorrowingHistory,
   getPendingReservations,
   getBookBorrowingHistory,
   cancelReservation

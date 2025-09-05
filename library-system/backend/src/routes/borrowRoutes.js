@@ -7,6 +7,7 @@ const {
   confirmReturn,
   listBorrows, 
   getUserBorrowingStatus,
+  getUserBorrowingHistory,
   getPendingReservations,
   getBookBorrowingHistory,
   cancelReservation
@@ -33,6 +34,9 @@ router.post("/confirm-return", authMiddleware, authorizeRoles("admin", "super_ad
 
 // Get user's borrowing status
 router.get("/status", authMiddleware, authorizeRoles("user", "admin", "super_admin"), getUserBorrowingStatus);
+
+// Get user's borrowing history with pagination
+router.get("/user-history", authMiddleware, authorizeRoles("user", "admin", "super_admin"), getUserBorrowingHistory);
 
 // Get pending reservations (admin view)
 router.get("/pending-reservations", authMiddleware, authorizeRoles("admin", "super_admin"), getPendingReservations);
