@@ -284,6 +284,44 @@ class EmailService {
     const { subject, html } = this.generateOverdueNotificationEmail(userEmail, userName, bookTitle, dueDate, daysOverdue);
     return await this.sendEmail(userEmail, subject, html);
   }
+
+  generatePaymentApprovalEmail(userEmail, userName, plan, amount) {
+    const subject = `✅ Payment Approved - Membership Activated`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+        <div style="background-color: #059669; color: white; padding: 20px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="margin: 0; font-size: 24px;">📚 ${ENV.APP_NAME}</h1>
+        </div>
+        <div style="background-color: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <h2 style="color: #333; margin-top: 0;">🎉 Payment Approved - Membership Activated!</h2>
+          <p style="color: #666; font-size: 16px;">Hello <strong>${userName}</strong>,</p>
+          <p style="color: #666; font-size: 16px;">Great news! Your payment has been approved and your library membership is now active.</p>
+          
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #059669; margin: 0 0 10px 0;">💳 Payment Details</h3>
+            <p style="color: #666; margin: 0;"><strong>Plan:</strong> ${plan}</p>
+            <p style="color: #666; margin: 5px 0 0 0;"><strong>Amount:</strong> ${amount} ETB</p>
+          </div>
+          
+          <div style="background-color: #ecfdf5; border: 1px solid #10b981; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="color: #065f46; margin: 0; font-weight: bold;">✨ You can now borrow books from our library! Start exploring our collection.</p>
+          </div>
+          
+          <p style="color: #666; font-size: 16px;">Welcome to the library community!</p>
+          
+          <div style="text-align: center; margin-top: 30px;">
+            <p style="color: #999; font-size: 14px;">Best regards,<br>${ENV.APP_NAME} Team</p>
+          </div>
+        </div>
+      </div>
+    `;
+    return { subject, html };
+  }
+
+  async sendPaymentApproval(userEmail, userName, plan, amount) {
+    const { subject, html } = this.generatePaymentApprovalEmail(userEmail, userName, plan, amount);
+    return await this.sendEmail(userEmail, subject, html);
+  }
 }
 
 module.exports = new EmailService();

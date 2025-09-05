@@ -120,21 +120,7 @@ const requestBorrow = async (req, res) => {
 
     await borrow.save();
 
-    // Send reservation confirmation email
-    try {
-      const user = await User.findById(req.user._id);
-      if (user && user.email) {
-        await emailService.sendReservationConfirmation(
-          user.email,
-          user.username,
-          book.title,
-          reservationExpiry
-        );
-      }
-    } catch (emailError) {
-      console.error('Failed to send reservation confirmation email:', emailError);
-      // Continue execution even if email fails
-    }
+    // Note: No email sent for reservations - only for confirmed borrows
 
     res.status(201).json({
       message: "Book reserved successfully. Please collect within 24 hours.",
@@ -542,6 +528,54 @@ const getBookBorrowingHistory = async (req, res) => {
   }
 };
 
+// Cancel a reservation (user can cancel their own reservations)
+const cancelReservation = async (req, res) => {
+  try {
+    const { borrowId } = req.body;
+
+    if (!borrowId) {
+      return res.status(400).json({ message: "borrowId is required" });
+    }
+
+    const borrow = await Borrow.findById(borrowId);
+    if (!borrow) {
+      return res.status(404).json({ message: "Reservation not found" });
+    }
+
+    // Check if the user owns this reservation
+    if (borrow.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "You can only cancel your own reservations" });
+    }
+
+    // Check if it's actually a reservation
+    if (borrow.status !== "reserved") {
+      return res.status(400).json({ message: "This is not an active reservation" });
+    }
+
+    // Check if reservation has expired
+    if (borrow.reservationExpiry < new Date()) {
+      return res.status(400).json({ message: "This reservation has already expired" });
+    }
+
+    // Restore available copies
+    const book = await Book.findById(borrow.book);
+    if (book) {
+      book.availableCopies += 1;
+      await book.save();
+    }
+
+    // Delete the reservation
+    await Borrow.findByIdAndDelete(borrowId);
+
+    res.json({
+      message: "Reservation cancelled successfully",
+      book: book ? { id: book._id, availableCopies: book.availableCopies } : null
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = { 
   requestBorrow, 
   confirmCollection, 
@@ -551,7 +585,8 @@ module.exports = {
   listBorrows, 
   getUserBorrowingStatus,
   getPendingReservations,
-  getBookBorrowingHistory
+  getBookBorrowingHistory,
+  cancelReservation
 };
 
 

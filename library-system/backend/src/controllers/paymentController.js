@@ -1,5 +1,6 @@
 const Payment = require("../models/Payment");
 const User = require("../models/User");
+const emailService = require("../services/emailService");
 
 // Submit payment with optional proof (Cloudinary middleware sets req.cloudinaryResult)
 const submitPayment = async (req, res) => {
@@ -132,6 +133,22 @@ const approvePayment = async (req, res) => {
     const expiry = new Date(now);
     expiry.setMonth(expiry.getMonth() + monthsToAdd);
     await User.findByIdAndUpdate(payment.user, { membershipStatus: "approved", membershipExpiryDate: expiry });
+
+    // Send payment approval email
+    try {
+      const user = await User.findById(payment.user);
+      if (user && user.email) {
+        await emailService.sendPaymentApproval(
+          user.email,
+          user.username,
+          payment.plan,
+          payment.amount
+        );
+      }
+    } catch (emailError) {
+      console.error('Failed to send payment approval email:', emailError);
+      // Continue execution even if email fails
+    }
 
     return res.json({ message: "Payment approved", payment });
   } catch (error) {

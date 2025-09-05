@@ -8,7 +8,8 @@ const {
   listBorrows, 
   getUserBorrowingStatus,
   getPendingReservations,
-  getBookBorrowingHistory
+  getBookBorrowingHistory,
+  cancelReservation
 } = require("../controllers/borrowController");
 const { authMiddleware } = require("../middleware/authMiddleware");
 const { authorizeRoles } = require("../middleware/roleMiddleware");
@@ -38,6 +39,9 @@ router.get("/pending-reservations", authMiddleware, authorizeRoles("admin", "sup
 
 // Get borrowing history for a specific book (admin view)
 router.get("/book/:bookId/history", authMiddleware, authorizeRoles("admin", "super_admin"), getBookBorrowingHistory);
+
+// Cancel a reservation (users can cancel their own reservations)
+router.post("/cancel-reservation", authMiddleware, authorizeRoles("user"), cancelReservation);
 
 // List borrows; users see their own, admins/super_admins see all
 router.get("/", authMiddleware, authorizeRoles("user", "admin", "super_admin"), listBorrows);
