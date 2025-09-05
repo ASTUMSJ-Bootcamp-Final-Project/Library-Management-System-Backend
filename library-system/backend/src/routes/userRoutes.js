@@ -126,6 +126,7 @@ router.get("/profile", authMiddleware, async (req, res) => {
       email: user.email,
       role: user.role,
       membershipStatus: user.membershipStatus || null,
+      membershipExpiryDate: user.membershipExpiryDate || null,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

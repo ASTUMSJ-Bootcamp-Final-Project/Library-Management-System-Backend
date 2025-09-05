@@ -14,13 +14,20 @@ const hasOverdueBooks = async (userId) => {
   return overdueBooks.length > 0;
 };
 
-// Check if user has reached the maximum borrowing limit
+// Check if user has reached the maximum borrowing limit (including reservations)
 const hasReachedBorrowingLimit = async (userId) => {
   const activeBorrows = await Borrow.find({
     user: userId,
     status: { $in: ["borrowed", "overdue"] }
   });
-  return activeBorrows.length >= 3;
+  
+  const activeReservations = await Borrow.find({
+    user: userId,
+    status: "reserved",
+    reservationExpiry: { $gt: new Date() }
+  });
+  
+  return (activeBorrows.length + activeReservations.length) >= 3;
 };
 
 // Check if user has active reservations
@@ -55,7 +62,7 @@ const requestBorrow = async (req, res) => {
     const membershipApproved = await isMembershipApproved(req.user._id);
     if (!membershipApproved) {
       return res.status(400).json({ 
-        message: "Cannot borrow books. Your membership is not approved. Please contact the library administrator." 
+        message: "Your membership is pending approval. Please complete your subscription payment to activate your library membership and start borrowing books." 
       });
     }
 
@@ -70,7 +77,7 @@ const requestBorrow = async (req, res) => {
     const hasReachedLimit = await hasReachedBorrowingLimit(req.user._id);
     if (hasReachedLimit) {
       return res.status(400).json({ 
-        message: "Cannot borrow more books. You have reached the maximum limit of 3 books." 
+        message: "Cannot reserve more books. You have reached the maximum limit of 3 books (including borrowed and reserved books)." 
       });
     }
 
@@ -446,16 +453,18 @@ const getUserBorrowingStatus = async (req, res) => {
       borrow.dueDate >= new Date()
     );
     
+    const totalActiveBooks = activeBorrows.length + activeReservations.length;
+    
     const status = {
       totalBorrowed: activeBorrows.length,
       totalReserved: activeReservations.length,
       totalReturnRequested: returnRequestedBooks.length,
       borrowedBooks: borrowedBooks.length,
       overdueBooks: overdueBooks.length,
-      canBorrowMore: activeBorrows.length < 3,
+      canBorrowMore: totalActiveBooks < 3,
       hasOverdueBooks: overdueBooks.length > 0,
       maxBooksAllowed: 3,
-      booksRemaining: Math.max(0, 3 - activeBorrows.length),
+      booksRemaining: Math.max(0, 3 - totalActiveBooks),
       activeBorrows: activeBorrows,
       activeReservations: activeReservations,
       returnRequestedBooks: returnRequestedBooks,

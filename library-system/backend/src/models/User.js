@@ -15,6 +15,8 @@ const userSchema = new mongoose.Schema({
     enum: ["pending", "approved", "suspended"],
     default: "pending"
   },
+  // When membership is approved, set an expiry date
+  membershipExpiryDate: { type: Date },
 }, { timestamps: true });
 
 // Ensure we never expose password in JSON responses

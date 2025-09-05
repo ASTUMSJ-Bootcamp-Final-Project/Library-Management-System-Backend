@@ -6,6 +6,8 @@ const bookRoutes = require("./routes/bookRoutes");
 const userRoutes = require("./routes/userRoutes");
 const borrowRoutes = require("./routes/borrowRoutes");
 const reminderRoutes = require("./routes/reminderRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+const eventsRoutes = require("./routes/eventsRoutes");
 
 const app = express();
 
@@ -25,5 +27,7 @@ app.use("/api/books", bookRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/borrow", borrowRoutes);
 app.use("/api/reminders", reminderRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/events", eventsRoutes);
 
 module.exports = app;
