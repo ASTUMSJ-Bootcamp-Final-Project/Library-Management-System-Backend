@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path"); // for handling file paths
 
+const authRoutes = require("./routes/authRoutes");
 const bookRoutes = require("./routes/bookRoutes");
 const userRoutes = require("./routes/userRoutes");
 const borrowRoutes = require("./routes/borrowRoutes");
@@ -23,6 +24,7 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
+app.use("/api/auth", authRoutes);
 app.use("/api/books", bookRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/borrow", borrowRoutes);
